@@ -1,6 +1,6 @@
 # CodeSnippets
 
-##Get date range
+## Get date range
 ```php
 $time_start = DateTime::createFromFormat("Y-m-d",$string_from_date);
 $time_end   = DateTime::createFromFormat("Y-m-d",$string_to_date);
