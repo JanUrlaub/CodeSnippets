@@ -36,7 +36,7 @@ use \jamesiarmes\PhpEws\Request\GetItemType;
 use \jamesiarmes\PhpEws\Request\FindFolderType;
 use \jamesiarmes\PhpEws\Request\FindItemType;
 
-private function get_finished_folder($folder_name){
+private function get_folder($folder_name){
 
     // Build the request.
     $request = new FindFolderType();
@@ -176,7 +176,5 @@ public function get_mail_attachements_ews($cache_path, $message_id,$convertHtml=
             }
         }
     }
-
-    #https://github.com/spipu/html2pdf/blob/master/doc/install.md
 }
 ```
