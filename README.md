@@ -80,7 +80,68 @@ function encodePath($path)
     return implode('/', $a);
 }
 ```
+## elfinder for front end
+Use the class [elFinderSession2.php](elFinderSession2.php) and set it ti elfinder session handler.  
+```php
+ $opts = array(
+   'bind' => array(
+       'mkdir mkfile rename duplicate upload rm paste put file zipdl' =>'elfinger_logger',
+   ),                
+   'roots' => $roots,
+   # codeigniter session handling blockade loading all other sessions actions until this file browser has been loaded finaly
+   "session" => ($this->input->get("cmd")=="zipdl")?null:new elFinderSession2(array()),
+);
+```
+Logger implementation
+```php
+/**
+ * Smart logger function
+ * Demonstrate how to work with elFinder event api
+ * https://github.com/Studio-42/elFinder/wiki/Logging
+ *
+ * @param  string   $cmd       command name
+ * @param  array    $result    command result
+ * @param  array    $args      command arguments from client
+ * @param  elFinder $elfinder  elFinder instance
+ * @param  volume   $volume    elFinder current volume instance
+ * @return void|true
+ * @author Troex Nevelin
+ **/
+function elfinger_logger($cmd, $result, $args, $elfinder, $volume) {
+    #Select Instanz get Data from active site
+    $CI =& get_instance();
+    $user_id     = trim($CI->profile_model->userdata('user_id'));
 
+    //special for open file -.-
+    // todo: implementation of zipdl 
+    
+    if($cmd=="file"){
+        insertLog($user_id ,"cloud" ,$cmd ,$result["info"]["name"],"portal");
+        return;
+    }
+
+    foreach ($result as $key => $value) {
+
+        if (empty($value)) {
+            continue;
+        }
+        $data = array();
+        if (in_array($key, array('error', 'warning'))) {
+            array_push($data, implode(' ', $value));
+        } else {
+            if (is_array($value)) { // changes made to files
+                foreach ($value as $file) {
+                    $filepath = (isset($file['realpath']) ? $file['realpath'] : $elfinder->realpath($file['hash']));
+                    array_push($data, $filepath);
+                }
+            } else { // other value (ex. header)
+                array_push($data, $value);
+            }
+        }
+        insertLog($user_id ,"cloud" ,$key ,implode(', ', $data),"portal");
+    }
+}
+```
 ## Microsoft EWS Support
 get Folder and its mails
 ```php
@@ -225,6 +286,7 @@ public function get_mail_attachements_ews($cache_path, $message_id,$convertHtml=
     }
 }
 ```
+## LDAP
 do authetication check with given email and password 
 ```php
 $ldap = new Laminas\Ldap\Ldap($options);
@@ -275,6 +337,7 @@ function ldapSetAttribute(string $changedn,array $attributs,array $entry=array()
     return  $action;         
 }
 ```
+## Browser detection
 Identify browser
 ```php
 $browser = new Wolfcast\BrowserDetection();
