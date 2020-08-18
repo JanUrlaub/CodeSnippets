@@ -27,15 +27,78 @@ PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel($string_from_date);
 PhpOffice\PhpSpreadsheet\Shared\Date::PHPToExcel(date_create_from_format("H:i:s",$string_from_time));
 $Spreadsheet->getActiveSheet()->getStyle("D2:D10")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_DATE_TIME3);
 $Spreadsheet->getActiveSheet()->getStyle("H2:H10")->getNumberFormat()->setFormatCode(NumberFormat::FORMAT_DATE_YYYYMMDD2);
+$Spreadsheet->getActiveSheet()->getColumnDimension("D")->setAutoSize(TRUE); 
+$Spreadsheet->getActiveSheet()->getColumnDimension("H")->setAutoSize(TRUE); 
+```
+
+## Get a max_execution time on php cli
+```php
+function set_time_limit_cli($timeout_seconds){
+    //prevent cli process for zombie mode
+    $pid = pcntl_fork();
+    if (-1 == $pid) {
+        die('Failed! Unable to fork.');
+    } elseif ($pid == 0) {
+        for($i=0;$i<$timeout_seconds;$i++){
+            sleep(1);
+        }
+        
+        posix_kill(posix_getppid(), SIGKILL);
+        // You can do any on-failure clean-up here.
+        die('Failed! Process timed out and was killed.'."\n");
+    }
+}
+```
+
+## get GPS coordinates of an address 
+```php
+$geocoder = new \Geocoder\ProviderAggregator();
+$adapter  = new \Http\Client\Curl\Client();
+$geocoder->registerProviders ([new \Geocoder\Provider\GoogleMaps\GoogleMaps($adapter, '&key=xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx')]);
+$result = $geocoder->using('google_maps')->geocodeQuery(\Geocoder\Query\GeocodeQuery::create($address));
+if ($result->count()>0) {
+    $data["lat"]=$result->first()->getCoordinates()->getLatitude();
+    $data["long"]=$result->first()->getCoordinates()->getLongitude();
+    $data["country"]=$result->first()->getCountry()->getCode();
+    $data["federal_state"]=$result->first()->getAdminLevels()->first()->getName();
+}
+```
+
+## use flysystem as handler fpor webvdav, local file system and any other file systems
+```php
+$client = new Sabre\DAV\Client($webdav_setting);
+$client->addCurlSetting(CURLOPT_SSL_VERIFYPEER,false);
+$folder = $encodePath($folder);
+$webdavAdapter 	= new League\Flysystem\WebDAV\WebDAVAdapter($client,"remote.php/webdav/".$folder);
+$flysystem = new League\Flysystem\Filesystem($webdavAdapter);
+function encodePath($path)
+{
+    $a = explode('/', $path);
+    for ($i=0; $i<count($a); $i++) {
+        $a[$i] = rawurlencode($a[$i]);
+    }
+    return implode('/', $a);
+}
 ```
 
 ## Microsoft EWS Support
+get Folder and its mails
 ```php
-use \jamesiarmes\PhpEws\Request\GetAttachmentType;
-use \jamesiarmes\PhpEws\Request\GetItemType;
-use \jamesiarmes\PhpEws\Request\FindFolderType;
-use \jamesiarmes\PhpEws\Request\FindItemType;
+$recipient = new \jamesiarmes\PhpEws\Type\EmailAddressType();
+$recipient->EmailAdcdress = $mailAdress;
+// Build the request.
+$request = new FindItemType(); $request->ItemShape = new ItemResponseShapeType(); $request->ItemShape->BaseShape = DefaultShapeNamesType::ALL_PROPERTIES; $request->ParentFolderIds = new NonEmptyArrayOfBaseFolderIdsType(); $request->Traversal = ItemQueryTraversalType::SHALLOW;
 
+// Search in the user's inbox.
+$folder_id = new DistinguishedFolderIdType(); $folder_id->Id = DistinguishedFolderIdNameType::INBOX;
+$folder_id->Mailbox = $recipient;
+$request->ParentFolderIds->DistinguishedFolderId[] = $folder_id;
+$response = $client->FindItem($request);
+$response_messages = $response->ResponseMessages->FindItemResponseMessage;
+$inbox_folder    = $response_messages[0];
+```
+Find a folder in mailbox 
+```php
 private function get_folder($folder_name){
 
     // Build the request.
@@ -78,25 +141,9 @@ private function get_folder($folder_name){
     return $response_messages[0]->RootFolder->Folders->Folder[0];
 
 }
-
-private function get_inbox_folder(){
-    // Build the request.
-    $request = new FindItemType();
-    $request->ItemShape = new ItemResponseShapeType();
-    $request->ItemShape->BaseShape = DefaultShapeNamesType::ALL_PROPERTIES;
-    $request->ParentFolderIds = new NonEmptyArrayOfBaseFolderIdsType();
-    $request->Traversal = ItemQueryTraversalType::SHALLOW;
-
-    // Search in the user's inbox.
-    $folder_id = new DistinguishedFolderIdType();
-    $folder_id->Id = DistinguishedFolderIdNameType::INBOX;
-    $folder_id->Mailbox = $this->recipient;
-    $request->ParentFolderIds->DistinguishedFolderId[] = $folder_id;
-    $response = $this->client->FindItem($request);
-    $response_messages = $response->ResponseMessages->FindItemResponseMessage;
-    return $response_messages[0];
-}
-
+```
+Get attachements of an folder
+```php
 public function get_mail_attachements_ews($cache_path, $message_id,$convertHtml=true){
     // Build the get item request.
     $request = new GetItemType();
@@ -176,5 +223,65 @@ public function get_mail_attachements_ews($cache_path, $message_id,$convertHtml=
             }
         }
     }
+}
+```
+do authetication check with given email and password 
+```php
+$ldap = new Laminas\Ldap\Ldap($options);
+$adapter = new Laminas\Authentication\Adapter\Ldap($option, $email,$password);  
+$result = $auth->authenticate($adapter); 
+$status=$result->isValid();
+$code = $result->getCode();
+```
+find an element by filter and return php friendly array
+```php
+
+$ldap->bind();
+$result = $ldap->search(
+    $filter,
+    $dn,
+    Laminas\Ldap\Ldap::SEARCH_SCOPE_SUB
+);
+if($ldap->getLastErrorCode()){
+    die($ldap->getLastError());
+}
+$return = $result->toArray();
+
+```
+Update value 
+```php
+function ldapSetAttribute(string $changedn,array $attributs,array $entry=array())
+{
+
+    foreach ($attributs as $key=> $attribut)
+    {
+    Laminas\Ldap\Attribute::setAttribute($entry, $key, $attribut);
+    }
+    
+    try {
+        $this->ldap->update($changedn, $entry);
+        $action=array(
+            "status"    =>TRUE,
+            "message"   =>"Erstellung POS"
+        );
+        
+    } catch (Laminas\Ldap\Exception\LdapException $zle) {
+        $action=array(
+            "status"    =>FALSE,
+            "message"   => $zle->getMessage()
+        );
+        log_message('error', "ldapSetAttribute ". $zle->getMessage());
+    } 
+    return  $action;         
+}
+```
+Identify browser
+```php
+$browser = new Wolfcast\BrowserDetection();
+if (
+    ($browser->getName() == Wolfcast\BrowserDetection::BROWSER_SAFARI) 
+    || (($browser->getPlatform()=="Android") &&($browser->getPlatformVersion(true)<=5))
+    || (($browser->getName() == Wolfcast\BrowserDetection::BROWSER_EDGE) && ($browser->getVersion(true)<=79))
+){
 }
 ```
